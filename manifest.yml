@@ -5,3 +5,4 @@ applications:
 
 services:
 - test-db1
+- test-s31

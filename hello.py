@@ -5,6 +5,8 @@ import os
 import re
 import json
 import psycopg2
+from boto.s3.connection import S3Connection
+from boto.s3.key import Key
 
 app = Flask(__name__)
 
@@ -35,22 +37,41 @@ print 'pg version is: %s' % ver
 print 'creating table if not present'
 cur.execute("CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer);")
 
+s3_access_key = services['amazon-s3'][0]['credentials']['access_key_id']
+s3_bucket = services['amazon-s3'][0]['credentials']['bucket']
+s3_secret_key = services['amazon-s3'][0]['credentials']['secret_access_key']
+s3_username = services['amazon-s3'][0]['credentials']['username']
+
+print 'trying to connect to S3...'
+s3_con = S3Connection(s3_access_key, s3_secret_key)
+
 
 @app.route('/')
 def hello_world():
     cur = con.cursor()
     cur.execute("SELECT * FROM test;")
-    data = "\n".join([str(x) for x in cur.fetchall()])
+    pg_data = "\n".join([str(x) for x in cur.fetchall()])
     cur.close()
-    return data
+
+    bucket = s3_con.get_bucket(s3_bucket)
+    s3_data = "\n".join([x.key for x in bucket.list()])
+
+    return 'PG:\n' + pg_data + '\nS3:\n' + s3_data
 
 
 @app.route('/add')
 def add():
+    r = randint(1, 100)
     cur = con.cursor()
-    cur.execute("INSERT INTO test (num) VALUES (%s)" % randint(1, 100))
+    cur.execute("INSERT INTO test (num) VALUES (%s)" % r)
     cur.close()
-    return 'Added.'
+
+    bucket = s3_con.get_bucket(s3_bucket)
+    k = Key(bucket)
+    k.key = str(r)
+    k.set_contents_from_string('S3 Broker test %d' % r)
+
+    return 'Added %d.' % r
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)
