@@ -36,6 +36,7 @@ print 'pg version is: %s' % ver
 
 print 'creating table if not present'
 cur.execute("CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer);")
+con.commit()
 
 s3_access_key = services['amazon-s3'][0]['credentials']['access_key_id']
 s3_bucket = services['amazon-s3'][0]['credentials']['bucket']
@@ -64,6 +65,7 @@ def add():
     r = randint(1, 100)
     cur = con.cursor()
     cur.execute("INSERT INTO test (num) VALUES (%s)" % r)
+    con.commit()
     cur.close()
 
     bucket = s3_con.get_bucket(s3_bucket)
